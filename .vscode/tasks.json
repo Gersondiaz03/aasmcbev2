@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run backend (uvicorn)",
+			"type": "shell",
+			"command": "pwsh -NoLogo -NoProfile -Command \"$env:APP_ENV='development'; cd 'C:\\Users\\gerso\\Desktop\\aasmccomplete\\aasmcbe-master'; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload\"",
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}
