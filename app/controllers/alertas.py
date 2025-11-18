@@ -12,6 +12,29 @@ from app.schemas.alerta import AlertaCreate, AlertaRead
 from app.schemas.notificacion import NotificacionRead
 from app.core.ws import manager
 
+FILTER_LINES = [
+    "análisis de ia",
+    "mensaje bloqueado por filtro de contenido de azure",
+]
+
+
+def _sanitize_alert_text(raw: str) -> str:
+    """Remove any blocked analysis lines from the stored alert text.
+
+    We never want to persist nor show automatic content-filter explanations to end users
+    (requirement: hide 'Análisis de IA' + 'Mensaje bloqueado...' lines). Works for
+    both plain text and multi-line content. Keeps original ordering for remaining lines.
+    """
+    if not raw:
+        return raw
+    lines = [
+        ln
+        for ln in raw.splitlines()
+        if not any(key in ln.lower() for key in FILTER_LINES)
+    ]
+    return "\n".join(lines).strip()
+
+
 router = APIRouter()
 
 
@@ -25,7 +48,9 @@ async def crear_alerta(alert_in: AlertaCreate, db: AsyncSession = Depends(get_db
     if not estudiante:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
 
-    alerta = Alerta(**alert_in.model_dump())
+    # Sanitize incoming text before persistence
+    sanitized_text = _sanitize_alert_text(alert_in.texto)
+    alerta = Alerta(**{**alert_in.model_dump(), "texto": sanitized_text})
     db.add(alerta)
     await db.commit()
     await db.refresh(alerta)
@@ -39,9 +64,9 @@ async def crear_alerta(alert_in: AlertaCreate, db: AsyncSession = Depends(get_db
 
         texto_data = json.loads(alerta.texto)
         if isinstance(texto_data, dict) and "mensaje_original" in texto_data:
-            texto_preview = texto_data["mensaje_original"]
+            texto_preview = _sanitize_alert_text(texto_data["mensaje_original"])
     except (json.JSONDecodeError, ValueError):
-        pass  # Use raw texto if not JSON
+        texto_preview = _sanitize_alert_text(texto_preview)
 
     titulo_base = (
         f"ALERTA {alerta.severidad}: {estudiante_nombre} ({estudiante.email}) - "
