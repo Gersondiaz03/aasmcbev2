@@ -32,10 +32,23 @@ async def crear_alerta(alert_in: AlertaCreate, db: AsyncSession = Depends(get_db
 
     # Build human-readable info for notifications
     estudiante_nombre = f"{getattr(estudiante, 'nombre', '')} {getattr(estudiante, 'apellido', '')}".strip()
+    # Extract just the original message if texto contains JSON
+    texto_preview = alerta.texto
+    try:
+        import json
+
+        texto_data = json.loads(alerta.texto)
+        if isinstance(texto_data, dict) and "mensaje_original" in texto_data:
+            texto_preview = texto_data["mensaje_original"]
+    except (json.JSONDecodeError, ValueError):
+        pass  # Use raw texto if not JSON
+
     titulo_base = (
-        f"ALERTA {alerta.severidad}: {estudiante_nombre} ({estudiante.email}) a las "
-        f"{alerta.fecha_creacion} dijo: '{alerta.texto[:150]}{'...' if len(alerta.texto) > 150 else ''}'"
-    )
+        f"ALERTA {alerta.severidad}: {estudiante_nombre} ({estudiante.email}) - "
+        f"{texto_preview[:80]}{'...' if len(texto_preview) > 80 else ''}"
+    )[
+        :255
+    ]  # Ensure it fits in DB column limit
 
     # Find ADMIN and PSICOLOGO users
     res_roles = await db.execute(select(Role))
@@ -97,8 +110,8 @@ async def listar_alertas(db: AsyncSession = Depends(get_db)):
     return res.scalars().all()
 
 
-@router.get("/user/{id_estudiante}", response_model=list[AlertaRead])
-async def listar_alertas_usuario(
+@router.get("/user/{id_estudiante}", response_model=List[AlertaRead])
+async def obtener_alertas_estudiante(
     id_estudiante: int, db: AsyncSession = Depends(get_db)
 ):
     res = await db.execute(
@@ -107,3 +120,16 @@ async def listar_alertas_usuario(
         .order_by(Alerta.fecha_creacion.desc())
     )
     return res.scalars().all()
+
+
+@router.delete("/{id_alerta}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_alerta(id_alerta: int, db: AsyncSession = Depends(get_db)):
+    """Delete an alert by ID"""
+    res = await db.execute(select(Alerta).where(Alerta.id_alerta == id_alerta))
+    alerta = res.scalar_one_or_none()
+    if not alerta:
+        raise HTTPException(status_code=404, detail="Alerta no encontrada")
+
+    await db.delete(alerta)
+    await db.commit()
+    return None
