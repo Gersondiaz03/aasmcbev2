@@ -20,6 +20,7 @@ from app.controllers.notifications import router as notifications_router
 from app.controllers.observaciones import router as observaciones_router
 from app.controllers.alertas import router as alertas_router
 from app.controllers.ws_notifications import router as ws_notifications_router
+from app.controllers.chat import router as chat_router
 from app.models.roles import Role
 from fastapi.responses import RedirectResponse
 
@@ -49,13 +50,14 @@ app.include_router(
     observaciones_router, prefix="/observaciones", tags=["Observaciones"]
 )
 app.include_router(alertas_router, prefix="/alertas", tags=["Alertas"])
+app.include_router(chat_router)
 app.include_router(ws_notifications_router)
 
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://aasmc.vercel.app",
-    "https://aasmcv2.vercel.app"
+    "https://aasmcv2.vercel.app",
 ]
 
 app.add_middleware(
