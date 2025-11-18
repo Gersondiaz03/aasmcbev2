@@ -58,6 +58,7 @@ origins = [
     "http://127.0.0.1:3000",
     "https://aasmc.vercel.app",
     "https://aasmcv2.vercel.app",
+    "https://aasmcagentv2.onrender.com",
 ]
 
 app.add_middleware(
